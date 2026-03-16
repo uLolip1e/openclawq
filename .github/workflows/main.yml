@@ -40,6 +40,15 @@ jobs:
           cd apps/ios
           xcodegen generate
 
+      - name: Fetch and Patch External Dependencies
+        run: |
+          cd apps/ios
+          # Заставляем Xcode скачать пакеты в папку .spm-packages, он упадет с ошибкой версии, но файлы скачает!
+          xcodebuild -resolvePackageDependencies -project OpenClaw.xcodeproj -scheme OpenClaw -clonedSourcePackagesDirPath ./.spm-packages || true
+          # Патчим скачанные файлы
+          find .spm-packages -name "Package.swift" -exec sed -i '' 's/swift-tools-version: 6.2/swift-tools-version: 6.0/g' {} + || true
+          find .spm-packages -name "Package.swift" -exec sed -i '' 's/swift-tools-version: 6.1/swift-tools-version: 6.0/g' {} + || true
+
       - name: Build unsigned archive
         run: |
           cd apps/ios
@@ -49,6 +58,7 @@ jobs:
             -configuration Release \
             -sdk iphoneos \
             -archivePath $PWD/build/OpenClaw.xcarchive \
+            -clonedSourcePackagesDirPath ./.spm-packages \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO
