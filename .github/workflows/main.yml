@@ -1,7 +1,7 @@
 name: Build iOS IPA
 
 on:
-  workflow_dispatch: # Позволяет запускать сборку кнопкой руками
+  workflow_dispatch: 
 
 jobs:
   build:
@@ -9,6 +9,10 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+      
+      # Вот этот шаг переключит дефолтный Xcode на самую свежую версию, где есть Swift 6.2
+      - name: Select latest Xcode
+        run: sudo xcode-select -s /Applications/Xcode_16.4.app/Contents/Developer || sudo xcode-select -s /Applications/Xcode_16.3.app/Contents/Developer || sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
       
       - name: Install pnpm
         uses: pnpm/action-setup@v3
@@ -24,7 +28,7 @@ jobs:
       - name: Install xcodegen
         run: brew install xcodegen
 
-      - name: Install dependencies
+      - name: Install dependencies (ignoring TS errors)
         run: pnpm install --no-frozen-lockfile --ignore-scripts
 
       - name: Generate Xcode project
