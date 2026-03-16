@@ -33,8 +33,7 @@ jobs:
 
       - name: Downgrade Swift tools version
         run: |
-          find packages/openclawkit -name "Package.swift" -exec sed -i '' 's/swift-tools-version: 6.2.0/swift-tools-version: 6.0.0/g' {} +
-          find packages/swabble -name "Package.swift" -exec sed -i '' 's/swift-tools-version: 6.2.0/swift-tools-version: 6.0.0/g' {} +
+          find . -name "Package.swift" -exec sed -i '' 's/swift-tools-version: 6.2.0/swift-tools-version: 6.0.0/g' {} +
 
       - name: Generate Xcode project
         run: |
