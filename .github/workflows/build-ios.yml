@@ -1,0 +1,71 @@
+name: Build iOS IPA
+
+on:
+  workflow_dispatch: 
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Install pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+          
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - name: Install xcodegen
+        run: brew install xcodegen
+
+      - name: Install dependencies (ignoring TS errors)
+        run: pnpm install --no-frozen-lockfile --ignore-scripts
+
+      - name: Generate Xcode project
+        run: |
+          cd apps/ios
+          xcodegen generate
+
+      - name: Fetch and Patch External Dependencies
+        run: |
+          cd apps/ios
+          xcodebuild -resolvePackageDependencies -project OpenClaw.xcodeproj -scheme OpenClaw -clonedSourcePackagesDirPath ./.spm-packages || true
+          find .spm-packages -name "Package.swift" -exec sed -i '' 's/swift-tools-version: 6.2/swift-tools-version: 6.0/g' {} + || true
+          find .spm-packages -name "Package.swift" -exec sed -i '' 's/swift-tools-version: 6.1/swift-tools-version: 6.0/g' {} + || true
+          # patch local packages too just in case
+          find ../../packages -name "Package.swift" -exec sed -i '' 's/swift-tools-version: 6.2/swift-tools-version: 6.0/g' {} + || true
+          find ../../Swabble -name "Package.swift" -exec sed -i '' 's/swift-tools-version: 6.2/swift-tools-version: 6.0/g' {} + || true
+
+      - name: Build unsigned archive
+        run: |
+          cd apps/ios
+          xcodebuild clean archive \
+            -project OpenClaw.xcodeproj \
+            -scheme OpenClaw \
+            -configuration Release \
+            -sdk iphoneos \
+            -archivePath $PWD/build/OpenClaw.xcarchive \
+            -clonedSourcePackagesDirPath ./.spm-packages \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Package IPA
+        run: |
+          cd apps/ios
+          mkdir -p build/Payload
+          cp -R build/OpenClaw.xcarchive/Products/Applications/OpenClaw.app build/Payload/
+          cd build
+          zip -r OpenClaw.ipa Payload/
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpenClaw-iOS
+          path: apps/ios/build/OpenClaw.ipa
