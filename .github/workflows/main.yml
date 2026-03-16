@@ -33,12 +33,10 @@ jobs:
 
       - name: Downgrade Swift tools version
         run: |
-          find . -name "Package.swift" -exec sed -i '' 's/swift-tools-version: 6.2.0/swift-tools-version: 6.0.0/g' {} +
-
-      - name: Generate Xcode project
-        run: |
-          cd apps/ios
-          xcodegen generate
+          sed -i '' 's/swift-tools-version: 6.2/swift-tools-version: 6.0/g' Swabble/Package.swift || true
+          sed -i '' 's/swift-tools-version: 6.2/swift-tools-version: 6.0/g' packages/clawdbot/Package.swift || true
+          sed -i '' 's/swift-tools-version: 6.2/swift-tools-version: 6.0/g' apps/ios/project.yml || true
+          find . -name "Package.swift" -exec sed -i '' 's/swift-tools-version: 6.2.0/swift-tools-version: 6.0.0/g' {} + || true
 
       - name: Generate Xcode project
         run: |
