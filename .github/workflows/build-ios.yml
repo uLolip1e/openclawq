@@ -24,26 +24,29 @@ jobs:
       - name: Install xcodegen
         run: brew install xcodegen
 
-      - name: Install dependencies (ignoring TS errors)
+      - name: Install dependencies
         run: pnpm install --no-frozen-lockfile --ignore-scripts
+
+      - name: Patch Swift Tools Version globally
+        run: |
+          # Patch local files first
+          find . -name "Package.swift" -exec sed -i '' 's/swift-tools-version: 6.2/swift-tools-version: 6.0/g' {} + || true
+          find . -name "Package.swift" -exec sed -i '' 's/swift-tools-version: 6.1/swift-tools-version: 6.0/g' {} + || true
+
+          # ElevenLabsKit is hardcoded to 6.2 in its remote repo. We need to clone it locally, patch it, and override it.
+          cd apps/shared
+          git clone https://github.com/steipete/ElevenLabsKit
+          cd ElevenLabsKit
+          sed -i '' 's/swift-tools-version: 6.2/swift-tools-version: 6.0/g' Package.swift || true
+          cd ..
+          
+          # Now point OpenClawKit to the local ElevenLabsKit
+          sed -i '' 's|url: "https://github.com/steipete/ElevenLabsKit", exact: "0.1.0"|path: "../ElevenLabsKit"|g' OpenClawKit/Package.swift
 
       - name: Generate Xcode project
         run: |
           cd apps/ios
           xcodegen generate
-
-      - name: Hard patch packages
-        run: |
-          find . -name "Package.swift" -exec sed -i '' 's/swift-tools-version: 6.2.0/swift-tools-version: 6.0.0/g' {} + || true
-          find . -name "Package.swift" -exec sed -i '' 's/swift-tools-version: 6.2/swift-tools-version: 6.0/g' {} + || true
-          find . -name "Package.swift" -exec sed -i '' 's/swift-tools-version: 6.1/swift-tools-version: 6.0/g' {} + || true
-          
-          # Tell xcodegen to NOT resolve dynamically but just use patched versions? 
-          # Actually Xcode will still fetch them if we don't override the remote.
-          # Let's override the cache!
-          cd apps/ios
-          mkdir -p .spm-packages
-          # Xcode 16.0+ on macos-15 will support swift 6.0.
 
       - name: Build unsigned archive
         run: |
