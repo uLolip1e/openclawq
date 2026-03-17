@@ -24,10 +24,10 @@ jobs:
       - name: Install xcodegen
         run: brew install xcodegen
 
-      - name: Install dependencies (ignoring TS errors)
+      - name: Install dependencies
         run: pnpm install --no-frozen-lockfile --ignore-scripts
 
-      - name: Force downgrade and remove watchOS from project.yml
+      - name: Force downgrade in project.yml before generate
         run: |
           sed -i '' 's/SWIFT_VERSION: "6.2"/SWIFT_VERSION: "6.0"/g' apps/ios/project.yml || true
           sed -i '' 's/SWIFT_VERSION: "6.1"/SWIFT_VERSION: "6.0"/g' apps/ios/project.yml || true
@@ -38,16 +38,31 @@ jobs:
           cd apps/ios
           xcodegen generate
 
-      - name: Resolve and Patch External Packages
+      - name: Overwrite ALL Swift package manifests directly
+        run: |
+          # Fetch textual directly to a local path so xcodebuild doesn't complain about it either
+          git clone https://github.com/gonzalezreal/textual.git apps/ios/.spm-packages/textual || true
+          git clone https://github.com/steipete/ElevenLabsKit.git apps/ios/.spm-packages/ElevenLabsKit || true
+          
+          find apps/ios/.spm-packages -name "Package.swift" -exec sed -i '' 's/swift-tools-version: 6.2.0/swift-tools-version: 6.0.0/g' {} + || true
+          find apps/ios/.spm-packages -name "Package.swift" -exec sed -i '' 's/swift-tools-version: 6.2/swift-tools-version: 6.0/g' {} + || true
+          find apps/ios/.spm-packages -name "Package.swift" -exec sed -i '' 's/swift-tools-version: 6.1.0/swift-tools-version: 6.0.0/g' {} + || true
+          find apps/ios/.spm-packages -name "Package.swift" -exec sed -i '' 's/swift-tools-version: 6.1/swift-tools-version: 6.0/g' {} + || true
+          
+          # Patch local repo manifests
+          find . -name "Package.swift" -exec sed -i '' 's/swift-tools-version: 6.2.0/swift-tools-version: 6.0.0/g' {} + || true
+          find . -name "Package.swift" -exec sed -i '' 's/swift-tools-version: 6.2/swift-tools-version: 6.0/g' {} + || true
+          find . -name "Package.swift" -exec sed -i '' 's/swift-tools-version: 6.1.0/swift-tools-version: 6.0.0/g' {} + || true
+          find . -name "Package.swift" -exec sed -i '' 's/swift-tools-version: 6.1/swift-tools-version: 6.0/g' {} + || true
+          
+          # Force local dependencies in OpenClawKit instead of remote
+          sed -i '' 's|url: "https://github.com/steipete/ElevenLabsKit", exact: "0.1.0"|path: "../../ios/.spm-packages/ElevenLabsKit"|g' apps/shared/OpenClawKit/Package.swift || true
+          sed -i '' 's|url: "https://github.com/gonzalezreal/textual", exact: "0.3.1"|path: "../../ios/.spm-packages/textual"|g' apps/shared/OpenClawKit/Package.swift || true
+
+      - name: Resolve SPM
         run: |
           cd apps/ios
           xcodebuild -resolvePackageDependencies -project OpenClaw.xcodeproj -scheme OpenClaw -clonedSourcePackagesDirPath ./.spm-packages || true
-          find .spm-packages -name "Package.swift" -exec sed -i '' 's/swift-tools-version: 6.2/swift-tools-version: 6.0/g' {} + || true
-          find .spm-packages -name "Package.swift" -exec sed -i '' 's/swift-tools-version: 6.1/swift-tools-version: 6.0/g' {} + || true
-          find ../../packages -name "Package.swift" -exec sed -i '' 's/swift-tools-version: 6.2/swift-tools-version: 6.0/g' {} + || true
-          find ../../packages -name "Package.swift" -exec sed -i '' 's/swift-tools-version: 6.1/swift-tools-version: 6.0/g' {} + || true
-          find ../../Swabble -name "Package.swift" -exec sed -i '' 's/swift-tools-version: 6.2/swift-tools-version: 6.0/g' {} + || true
-          find ../../Swabble -name "Package.swift" -exec sed -i '' 's/swift-tools-version: 6.1/swift-tools-version: 6.0/g' {} + || true
 
       - name: Build unsigned archive
         run: |
