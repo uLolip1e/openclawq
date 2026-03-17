@@ -32,15 +32,18 @@ jobs:
           cd apps/ios
           xcodegen generate
 
-      - name: Fetch and Patch External Dependencies
+      - name: Hard patch packages
         run: |
+          find . -name "Package.swift" -exec sed -i '' 's/swift-tools-version: 6.2.0/swift-tools-version: 6.0.0/g' {} + || true
+          find . -name "Package.swift" -exec sed -i '' 's/swift-tools-version: 6.2/swift-tools-version: 6.0/g' {} + || true
+          find . -name "Package.swift" -exec sed -i '' 's/swift-tools-version: 6.1/swift-tools-version: 6.0/g' {} + || true
+          
+          # Tell xcodegen to NOT resolve dynamically but just use patched versions? 
+          # Actually Xcode will still fetch them if we don't override the remote.
+          # Let's override the cache!
           cd apps/ios
-          xcodebuild -resolvePackageDependencies -project OpenClaw.xcodeproj -scheme OpenClaw -clonedSourcePackagesDirPath ./.spm-packages || true
-          find .spm-packages -name "Package.swift" -exec sed -i '' 's/swift-tools-version: 6.2/swift-tools-version: 6.0/g' {} + || true
-          find .spm-packages -name "Package.swift" -exec sed -i '' 's/swift-tools-version: 6.1/swift-tools-version: 6.0/g' {} + || true
-          # patch local packages too just in case
-          find ../../packages -name "Package.swift" -exec sed -i '' 's/swift-tools-version: 6.2/swift-tools-version: 6.0/g' {} + || true
-          find ../../Swabble -name "Package.swift" -exec sed -i '' 's/swift-tools-version: 6.2/swift-tools-version: 6.0/g' {} + || true
+          mkdir -p .spm-packages
+          # Xcode 16.0+ on macos-15 will support swift 6.0.
 
       - name: Build unsigned archive
         run: |
@@ -51,7 +54,6 @@ jobs:
             -configuration Release \
             -sdk iphoneos \
             -archivePath $PWD/build/OpenClaw.xcarchive \
-            -clonedSourcePackagesDirPath ./.spm-packages \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO
