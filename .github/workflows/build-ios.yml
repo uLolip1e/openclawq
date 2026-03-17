@@ -24,29 +24,33 @@ jobs:
       - name: Install xcodegen
         run: brew install xcodegen
 
-      - name: Install dependencies
+      - name: Install dependencies (ignoring TS errors)
         run: pnpm install --no-frozen-lockfile --ignore-scripts
 
-      - name: Patch Swift Tools Version globally
+      - name: Force downgrade in project.yml before generate
         run: |
-          # Patch local files first
-          find . -name "Package.swift" -exec sed -i '' 's/swift-tools-version: 6.2/swift-tools-version: 6.0/g' {} + || true
-          find . -name "Package.swift" -exec sed -i '' 's/swift-tools-version: 6.1/swift-tools-version: 6.0/g' {} + || true
-
-          # ElevenLabsKit is hardcoded to 6.2 in its remote repo. We need to clone it locally, patch it, and override it.
-          cd apps/shared
-          git clone https://github.com/steipete/ElevenLabsKit
-          cd ElevenLabsKit
-          sed -i '' 's/swift-tools-version: 6.2/swift-tools-version: 6.0/g' Package.swift || true
-          cd ..
-          
-          # Now point OpenClawKit to the local ElevenLabsKit
-          sed -i '' 's|url: "https://github.com/steipete/ElevenLabsKit", exact: "0.1.0"|path: "../ElevenLabsKit"|g' OpenClawKit/Package.swift
+          sed -i '' 's/SWIFT_VERSION: "6.2"/SWIFT_VERSION: "6.0"/g' apps/ios/project.yml || true
+          sed -i '' 's/SWIFT_VERSION: "6.1"/SWIFT_VERSION: "6.0"/g' apps/ios/project.yml || true
 
       - name: Generate Xcode project
         run: |
           cd apps/ios
           xcodegen generate
+
+      - name: Resolve and Patch External Packages
+        run: |
+          cd apps/ios
+          xcodebuild -resolvePackageDependencies -project OpenClaw.xcodeproj -scheme OpenClaw -clonedSourcePackagesDirPath ./.spm-packages || true
+          
+          # Patch cloned packages
+          find .spm-packages -name "Package.swift" -exec sed -i '' 's/swift-tools-version: 6.2/swift-tools-version: 6.0/g' {} + || true
+          find .spm-packages -name "Package.swift" -exec sed -i '' 's/swift-tools-version: 6.1/swift-tools-version: 6.0/g' {} + || true
+          
+          # Patch local packages
+          find ../../packages -name "Package.swift" -exec sed -i '' 's/swift-tools-version: 6.2/swift-tools-version: 6.0/g' {} + || true
+          find ../../packages -name "Package.swift" -exec sed -i '' 's/swift-tools-version: 6.1/swift-tools-version: 6.0/g' {} + || true
+          find ../../Swabble -name "Package.swift" -exec sed -i '' 's/swift-tools-version: 6.2/swift-tools-version: 6.0/g' {} + || true
+          find ../../Swabble -name "Package.swift" -exec sed -i '' 's/swift-tools-version: 6.1/swift-tools-version: 6.0/g' {} + || true
 
       - name: Build unsigned archive
         run: |
@@ -57,6 +61,7 @@ jobs:
             -configuration Release \
             -sdk iphoneos \
             -archivePath $PWD/build/OpenClaw.xcarchive \
+            -clonedSourcePackagesDirPath ./.spm-packages \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO
